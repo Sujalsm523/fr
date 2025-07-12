@@ -23,3 +23,56 @@ body,
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+@layer utilities {
+  .bg-brown-dark {
+    background-color: #683d1e;
+  }
+  .bg-brown {
+    background-color: #c17238;
+  }
+  .bg-yellow {
+    background-color: #fde791;
+  }
+
+  .text-brown-dark {
+    color: #683d1e;
+  }
+  .text-brown {
+    color: #c17238;
+  }
+  .text-yellow {
+    color: #fde791;
+  }
+
+  .border-brown-dark {
+    border-color: #683d1e;
+  }
+  .border-brown {
+    border-color: #c17238;
+  }
+  .border-yellow {
+    border-color: #fde791;
+  }
+
+  /* Font utilities */
+  .font-kalnia {
+    font-family: "Kalnia", serif;
+  }
+
+  /* Optional: Additional Kalnia font weight classes */
+  .font-kalnia-light {
+    font-family: "Kalnia", serif;
+    font-weight: 300;
+  }
+
+  .font-kalnia-medium {
+    font-family: "Kalnia", serif;
+    font-weight: 500;
+  }
+
+  .font-kalnia-bold {
+    font-family: "Kalnia", serif;
+    font-weight: 700;
+  }
+}

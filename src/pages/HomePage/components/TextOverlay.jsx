@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FaLinkedin, FaEnvelope, FaArrowRight } from "react-icons/fa";
-import GenerateButton from "../components/Buttons/GenerateButton";
 import toast from "react-hot-toast";
-
 import { FaAnglesDown } from "react-icons/fa6";
-import { useFurnitureContext } from "../context/FurnitureContext";
-import ContactModal from "../pages/ContactUsPage";
+import { useAuthContext } from "../../../context/AuthContext";
+import GenerateButton from "../../../components/Buttons/GenerateButton";
+import ContactModal from "../../../components/modals/ContactModal";
 
 const ScrollIndicator = ({ show }) => {
   const [animateUp, setAnimateUp] = useState(false);
@@ -69,7 +68,7 @@ const TextOverlay = ({ scrollProgress }) => {
   });
   const timeoutRef = useRef(null);
   const isAnimating = useRef(false);
-  const { showUserLogin, user, navigate } = useFurnitureContext();
+  const { showUserLogin, user, navigate } = useAuthContext();
   // Studio access with authentication check
   const handleStudioAccess = () => {
     if (!showUserLogin || !user) {

@@ -1,11 +1,11 @@
 // /src/components/ProtectedRoute.jsx
 import { useLocation, Navigate } from "react-router-dom";
-import { useFurnitureContext } from "../context/FurnitureContext";
 import { useEffect, useState } from "react";
+import { useAuthContext } from "../context/AuthContext";
 
 const ProtectedRoute = ({ children }) => {
   const { showUserLogin, user, axios, setShowAuthModal, setRedirectPath } =
-    useFurnitureContext();
+    useAuthContext();
 
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);

@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { Environment, Html, useDetectGPU } from "@react-three/drei";
 import HouseModel from "./HouseModel";
-import { useScrollContext } from "../context/ScrollContext";
+import { useScrollContext } from "../../../context/ScrollContext";
 
 // WebGL availability check
 function isWebGLAvailable() {

@@ -1,5 +1,9 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { ScrollProvider } from "../../context/ScrollContext";
+import HomePageExperience from "./components/HomePageExperience";
+import Navbar from "../../components/Navbar";
+import LoadingScreen from "../../components/LoadingScreen";
 
 const HomePage = () => {
   return (
@@ -22,7 +26,7 @@ const HomePage = () => {
 
           {/* canvas  */}
 
-          <Experience />
+          <HomePageExperience />
         </div>
       </div>
     </ScrollProvider>

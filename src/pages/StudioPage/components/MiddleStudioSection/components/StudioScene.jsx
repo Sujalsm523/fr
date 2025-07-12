@@ -6,6 +6,7 @@ import {
   Outlines,
   Text,
   CameraControls,
+  DragControls, // Import DragControls
 } from "@react-three/drei";
 import { Physics, RigidBody } from "@react-three/rapier";
 import { useControls } from "leva";
@@ -37,8 +38,7 @@ const DraggableModel = memo(
     const groupRef = useRef();
     const [dimensions, setDimensions] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
-    const [dragOffset, setDragOffset] = useState([0, 0, 0]);
-    const { camera, raycaster, pointer } = useThree();
+    const { camera, gl } = useThree();
     const [currentSurface, setCurrentSurface] = useState("floor");
 
     useLayoutEffect(() => {
@@ -49,12 +49,12 @@ const DraggableModel = memo(
         const size = new THREE.Vector3();
         boundingBox.getSize(size);
         setDimensions({
-          width: size.x,
-          height: size.y,
-          depth: size.z,
+          width: size.x * scale,
+          height: size.y * scale,
+          depth: size.z * scale,
         });
       }
-    }, [model]);
+    }, [model, scale]);
 
     // Detect which surface the model is on
     const detectSurface = (pos) => {
@@ -64,210 +64,139 @@ const DraggableModel = memo(
       const halfDepth = depth / 2;
 
       // Floor detection
-      if (pos[1] < threshold) {
-        return "floor";
-      }
-
+      if (pos[1] < threshold) return "floor";
       // Ceiling detection
-      if (pos[1] > height - threshold) {
-        return "ceiling";
-      }
-
+      if (pos[1] > height - threshold) return "ceiling";
       // Wall detection
-      if (Math.abs(pos[2] + halfDepth) < threshold) {
-        return "back";
-      }
-      if (Math.abs(pos[2] - halfDepth) < threshold) {
-        return "front";
-      }
-      if (Math.abs(pos[0] + halfWidth) < threshold) {
-        return "left";
-      }
-      if (Math.abs(pos[0] - halfWidth) < threshold) {
-        return "right";
-      }
+      if (Math.abs(pos[2] + halfDepth) < threshold) return "back";
+      if (Math.abs(pos[2] - halfDepth) < threshold) return "front";
+      if (Math.abs(pos[0] + halfWidth) < threshold) return "left";
+      if (Math.abs(pos[0] - halfWidth) < threshold) return "right";
 
       return "floor";
     };
 
-    useFrame(() => {
-      if (isDragging && isSelected && groupRef.current) {
-        const plane = new THREE.Plane();
-        const intersection = new THREE.Vector3();
-        const currentPosition = groupRef.current.position.toArray();
-        const halfWidth = roomDimensions.width / 2;
-        const halfDepth = roomDimensions.depth / 2;
-        const roomHeight = roomDimensions.height;
-
-        // Set drag plane based on surface
-        switch (currentSurface) {
-          case "floor":
-          case "ceiling":
-            // XY plane (horizontal movement)
-            plane.setFromNormalAndCoplanarPoint(
-              new THREE.Vector3(0, 1, 0),
-              new THREE.Vector3(0, currentPosition[1], 0)
-            );
-            break;
-
-          case "back":
-          case "front":
-            // YZ plane (vertical movement parallel to wall)
-            plane.setFromNormalAndCoplanarPoint(
-              new THREE.Vector3(0, 0, 1),
-              new THREE.Vector3(0, 0, currentPosition[2])
-            );
-            break;
-
-          case "left":
-          case "right":
-            // XZ plane (vertical movement parallel to wall)
-            plane.setFromNormalAndCoplanarPoint(
-              new THREE.Vector3(1, 0, 0),
-              new THREE.Vector3(currentPosition[0], 0, 0)
-            );
-            break;
-        }
-
-        raycaster.setFromCamera(pointer, camera);
-        raycaster.ray.intersectPlane(plane, intersection);
-
-        if (intersection) {
-          let newPosition = [
-            intersection.x - dragOffset[0],
-            intersection.y - dragOffset[1],
-            intersection.z - dragOffset[2],
-          ];
-
-          // Apply surface-specific constraints
-          switch (currentSurface) {
-            case "floor":
-            case "ceiling":
-              // Lock to surface height
-              newPosition[1] = currentPosition[1];
-              // Constrain to room bounds
-              newPosition[0] = Math.max(
-                -halfWidth + 0.5,
-                Math.min(halfWidth - 0.5, newPosition[0])
-              );
-              newPosition[2] = Math.max(
-                -halfDepth + 0.5,
-                Math.min(halfDepth - 0.5, newPosition[2])
-              );
-              break;
-
-            case "back":
-            case "front":
-              // Lock to wall depth
-              newPosition[2] = currentPosition[2];
-              // Constrain to wall area
-              newPosition[0] = Math.max(
-                -halfWidth + 0.5,
-                Math.min(halfWidth - 0.5, newPosition[0])
-              );
-              newPosition[1] = Math.max(
-                0.5,
-                Math.min(roomHeight - 0.5, newPosition[1])
-              );
-              break;
-
-            case "left":
-            case "right":
-              // Lock to wall position
-              newPosition[0] = currentPosition[0];
-              // Constrain to wall area
-              newPosition[2] = Math.max(
-                -halfDepth + 0.5,
-                Math.min(halfDepth - 0.5, newPosition[2])
-              );
-              newPosition[1] = Math.max(
-                0.5,
-                Math.min(roomHeight - 0.5, newPosition[1])
-              );
-              break;
-          }
-
-          groupRef.current.position.set(...newPosition);
-          onPositionUpdate(modelId, newPosition);
-        }
-      }
-    });
-
-    const handlePointerDown = (e) => {
-      if (isSelected) {
-        e.stopPropagation();
-        setIsDragging(true);
-
-        // Detect current surface
-        const position = groupRef.current.position.toArray();
-        setCurrentSurface(detectSurface(position));
-
-        // Calculate offset from model center to click point
-        const modelPos = groupRef.current.position;
-        const clickPos = e.point;
-        setDragOffset([
-          clickPos.x - modelPos.x,
-          clickPos.y - modelPos.y,
-          clickPos.z - modelPos.z,
-        ]);
-      }
+    const handleDragStart = (e) => {
+      e.stopPropagation();
+      setIsDragging(true);
+      onSelect();
+      const position = groupRef.current.position.toArray();
+      setCurrentSurface(detectSurface(position));
     };
 
-    const handlePointerUp = () => {
+    const handleDrag = (e) => {
+      if (!isDragging || !groupRef.current || !dimensions) return;
+
+      const newPosition = groupRef.current.position.toArray();
+      const { width, height, depth } = roomDimensions;
+      const halfWidth = width / 2;
+      const halfDepth = depth / 2;
+      const roomHeight = height;
+
+      // Calculate model's half dimensions for accurate collision detection
+      const modelHalfWidth = dimensions.width / 2;
+      const modelHalfDepth = dimensions.depth / 2;
+      const modelHalfHeight = dimensions.height / 2;
+
+      // Apply surface-specific constraints
+      switch (currentSurface) {
+        case "floor":
+        case "ceiling":
+          newPosition[1] = groupRef.current.position.y; // Lock to surface height
+          newPosition[0] = Math.max(
+            -halfWidth + modelHalfWidth,
+            Math.min(halfWidth - modelHalfWidth, newPosition[0])
+          );
+          newPosition[2] = Math.max(
+            -halfDepth + modelHalfDepth,
+            Math.min(halfDepth - modelHalfDepth, newPosition[2])
+          );
+          break;
+
+        case "back":
+        case "front":
+          newPosition[2] = groupRef.current.position.z; // Lock to wall depth
+          newPosition[0] = Math.max(
+            -halfWidth + modelHalfWidth,
+            Math.min(halfWidth - modelHalfWidth, newPosition[0])
+          );
+          newPosition[1] = Math.max(
+            modelHalfHeight,
+            Math.min(roomHeight - modelHalfHeight, newPosition[1])
+          );
+          break;
+
+        case "left":
+        case "right":
+          newPosition[0] = groupRef.current.position.x; // Lock to wall position
+          newPosition[2] = Math.max(
+            -halfDepth + modelHalfDepth,
+            Math.min(halfDepth - modelHalfDepth, newPosition[2])
+          );
+          newPosition[1] = Math.max(
+            modelHalfHeight,
+            Math.min(roomHeight - modelHalfHeight, newPosition[1])
+          );
+          break;
+      }
+
+      groupRef.current.position.set(...newPosition);
+      onPositionUpdate(modelId, newPosition);
+    };
+
+    const handleDragEnd = () => {
       setIsDragging(false);
     };
 
-    // Update surface when position changes externally
     useEffect(() => {
       if (groupRef.current && !isDragging) {
         const position = groupRef.current.position.toArray();
         setCurrentSurface(detectSurface(position));
       }
-    }, [position]);
-
-    useEffect(() => {
-      const handleMouseUp = () => setIsDragging(false);
-      window.addEventListener("mouseup", handleMouseUp);
-      return () => window.removeEventListener("mouseup", handleMouseUp);
-    }, []);
+    }, [position, isDragging]);
 
     return (
-      <group
-        ref={groupRef}
-        position={position}
-        rotation={rotation}
-        scale={[scale, scale, scale]}
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelect();
-        }}
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
+      <DragControls
+        enabled={isSelected}
+        onDragStart={handleDragStart}
+        onDrag={handleDrag}
+        onDragEnd={handleDragEnd}
       >
-        <mesh
-          castShadow
-          receiveShadow
-          ref={meshRef}
-          geometry={model.nodes.geometry_0.geometry}
-          material={model.materials[""]}
+        <group
+          ref={groupRef}
+          position={position}
+          rotation={rotation}
+          scale={[scale, scale, scale]}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect();
+          }}
         >
-          {isSelected && <Outlines angle={0} thickness={1.1} color="red" />}
-        </mesh>
-
-        {dimensions && isSelected && (
-          <Text
-            position={[0, dimensions.height * scale + 0.2, 0]}
-            color="white"
-            fontSize={0.2}
-            anchorX="center"
-            anchorY="middle"
+          <mesh
+            castShadow
+            receiveShadow
+            ref={meshRef}
+            geometry={model.nodes.geometry_0.geometry}
+            material={model.materials[""]}
           >
-            {`W:${(dimensions.width * scale).toFixed(2)} H:${(
-              dimensions.height * scale
-            ).toFixed(2)} D:${(dimensions.depth * scale).toFixed(2)}`}
-          </Text>
-        )}
-      </group>
+            {isSelected && <Outlines angle={0} thickness={1.1} color="red" />}
+          </mesh>
+
+          {/* {dimensions && isSelected && (
+            <Text
+              position={[0, dimensions.height / scale + 0.2, 0]}
+              color="white"
+              fontSize={0.2}
+              anchorX="center"
+              anchorY="middle"
+            >
+              {`W:${dimensions.width.toFixed(2)} H:${dimensions.height.toFixed(
+                2
+              )} D:${dimensions.depth.toFixed(2)}`}
+            </Text>
+          )} */}
+        </group>
+      </DragControls>
     );
   }
 );
